@@ -28,6 +28,7 @@ Open up the `./setup_kafka_connector.sql` file into a Snowsight worksheet and ru
 
 #### Configure RSA Keys for the KCs Account
 - Create keys (for the lab/demo we will use unencrypted keys) via the instructions located [here](https://docs.snowflake.com/en/user-guide/kafka-connector-install.html#using-key-pair-authentication-key-rotation). We recommend naming the keys `sf_kafka_rsa_key.pem` and `sf_kafka_rsa_pub_key.pub` and putting them in the `./include/` directory. These will be ignored by Git.
+- Note that Windows PCs/Laptops may not have openssl installed by default. Links to download Windows binaries are available at https://wiki.openssl.org/index.php/Binaries 
 - Add public key to user in Snowflake:
 ```sql
 alter user <USERNAME> set rsa_public_key='copy_public_key_here';
@@ -37,8 +38,11 @@ alter user <USERNAME> set rsa_public_key='copy_public_key_here';
 We have provided a method for you to build and run all of the necessary components for this demo via a single `docker-compose.yml`. This will launch four services: Zookeeper, Apache Kafka, Kafka Connect, and the Python Streaming Client. To get started with this demo via Docker:
 
 1. Clone this repository to your local machine that has Docker Desktop installed: `git clone git@github.com:snowflakecorp/snowpipe_streaming_summit_demo.git`
-2. Open up the `SF_connect.properties` file in your text editor of choice and modify the following properties with your appropriate demo account information: `snowflake.url.name`, `snowflake.user.name`, and `snowflake.private.key`. If you are using an encrypted private key, you'll also neeed to uncomment and include the `snowflake.private.key.passphrase`, however if your key is not encrypted, leave this line commented out.
+
+2. Open up the `SF_connect.properties` file in your text editor of choice and modify the following properties with your appropriate demo account information: `snowflake.url.name`, `snowflake.user.name`, and `snowflake.private.key`. If you are using an encrypted private key, you'll also neeed to uncomment and include the `snowflake.private.key.passphrase`, however if your key is not encrypted, leave this line commented out. Note that the private key should be entered as a single string with no line breaks. Storing plaintext credentials 
+
 3. Once you have modified and saved the properties, you can build and launch the project:
+
 ```zsh
 cd /path/to/repo/
 docker-compose build

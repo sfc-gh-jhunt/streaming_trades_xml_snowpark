@@ -30,10 +30,12 @@ grant all on future tables in schema trades.raw to role kafka_connector_role_1;
 -- -- Grant the custom role to our SYSADMIN role
 grant role kafka_connector_role_1 to role SYSADMIN;
 
+-- Please refer to the section in readme.md covering how to generate RSA Keys for the keypair authentication which the Kafka connector will use
 -- Create a user specifically for the kafka connector
 -- and set its RSA public Key to use keypair authentication
-CREATE USER kafka_user PASSWORD='!abc123!' DEFAULT_ROLE = myrole DEFAULT_SECONDARY_ROLES = ('ALL') MUST_CHANGE_PASSWORD = FALSE;
-alter user kafka_user set rsa_public_key='MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4e5XL31mgjHS3ADV42JpBD3k7Ac+2B6Al483BJi0fPkEEvtqhbWI+a+70Hh2vaMyelFns2VvNrQbD/KHaaCeBGzT/sLzFmEA8uwAh6NJ8ilAqqXtbwe69lFCDp/J0Hl+hwuOVNYytG+ObFuKz2qodyL+I8vAcswfYqgUBlcJMnWvWRnNZsX4Of/vBX5jJYqHjDcU+VSsNudH8t64vXMFn2t0T16koo7jQJ4Uhtjs5Uo/WuZFabNY74sYRmG7aNpOeTQTPzbd/AgS43WwyEwD9CliwUm7pCaIsLtv5hYHwXzRS2EMaHhO21Rg1MYOCctTpgNUHz5cJF6pfbJqwBBZvwIDAQAB';
+-- Note that the public key should be entered as a single string with no line breaks
+CREATE USER kafka_user PASSWORD='!abc123!' DEFAULT_ROLE = PUBLIC MUST_CHANGE_PASSWORD = FALSE;
+alter user kafka_user set rsa_public_key='<enter public key here';
 DESCRIBE USER kafka_user;
 
 -- -- Grant the custom role to our newly created kafka_user user
