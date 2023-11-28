@@ -9,6 +9,9 @@ CREATE OR REPLACE WAREHOUSE hol_wh WITH WAREHOUSE_SIZE = 'XSMALL' WAREHOUSE_TYPE
 create database if not exists trades;
 use database trades;
 create schema if not exists raw;
+create schema if not exists transformed;
+create schema if not exists curated;
+create or replace stage trades.public.pipeline_functions;
 use schema raw;
 
 use role securityadmin;
