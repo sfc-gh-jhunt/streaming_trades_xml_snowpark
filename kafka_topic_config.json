@@ -1,0 +1,6 @@
+{
+    "topic": "trades_stream",
+    "messageFrequency": 1,
+    "numMessages": null,
+    "messageDate": null
+}
