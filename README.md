@@ -37,7 +37,7 @@ alter user <USERNAME> set rsa_public_key='copy_public_key_here';
 ### Docker Setup - Preferred Method
 We have provided a method for you to build and run all of the necessary components for this demo via a single `docker-compose.yml`. This will launch four services: Zookeeper, Apache Kafka, Kafka Connect, and the Python Streaming Client. To get started with this demo via Docker:
 
-1. Clone this repository to your local machine that has Docker Desktop installed: `git clone git@github.com:snowflakecorp/snowpipe_streaming_summit_demo.git`
+1. Clone this repository to your local machine that has Docker Desktop installed: `git clone git@github.com:sfc-gh-jhunt/streaming_trades_xml_snowpark.git`
 
 2. Open up the `SF_connect.properties` file in your text editor of choice and modify the following properties with your appropriate demo account information: `snowflake.url.name`, `snowflake.user.name`, and `snowflake.private.key`. If you are using an encrypted private key, you'll also neeed to uncomment and include the `snowflake.private.key.passphrase`, however if your key is not encrypted, leave this line commented out. Note that the private key should be entered as a single string with no line breaks. Storing plaintext credentials 
 
@@ -55,8 +55,8 @@ This `docker-compose up` command will launch:
 4. a Python client to stream fake data to Kafka
 
 ### Snowflake - Viewing & Querying Data in the Demo
-#### Creating the Reference Table and Dynamic Table
-Load the `./setup_tables.sql` and `./snowpipe_streaming_demo.sql` files into a Snowsight worksheet and walk through the SQL commands to query the data.
+#### Options to create transformed table / Dynamic Table
+Load the `./lab_walkthrough.sql` file into a Snowsight worksheet (or your IDE of choice) and walk through the SQL commands to query and transform the data.
 
 ---
 

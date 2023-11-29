@@ -9,11 +9,59 @@ use schema raw;
 select count(*) from trades_stream ;
 select * from  trades_stream order by timestamp desc limit 100;
 
--- Example of how to convert to JSON first and query using dot notation?
+-- One option is to convert the whole XML schema to JSON and query using dot notation:
+-- xmltodict package can be called in a udf to achieve this.
+create or replace function xml2json(xml_string varchar)
+returns variant
+language python
+volatile
+runtime_version = '3.8'
+packages = ('xmltodict')
+handler = 'xml2json'
+as
+$$
+import xmltodict
+import json
 
--- Then move on to extraction from XML (Nick's content)
+def xml2json(xml_string):
+    return xmltodict.parse(xml_string)
+    ## return xmltodict.parse(xml_string, process_namespaces=True)
+$$;
 
-use schema public;
+-- The udf can be called directly in a query:
+select 
+record_metadata,
+trade_msg,
+xml2json(trade_msg) as trade_msg_json
+from trades.raw.trades_stream
+limit 100;
+
+-- Or used to populate a transformed table containing the JSON:
+create table trades.transformed.trades_json as (
+select 
+record_metadata,
+xml2json(trade_msg) as trade_msg_json
+from trades.raw.trades_stream)
+;
+
+-- Once in JSON format dot-notation can be used to extract the required values as separate columns:
+-- however depending on the complexity of the XML it may be necessary to use techniques such as LATERAL FLATTEN to reference the required items:
+select
+trade_msg_json,
+trade_msg_json:"eventActivityReport":"correlationId":"#text"::varchar as correlationId,
+trade_msg_json:"eventActivityReport":"header":"messageId":"#text"::varchar as messageId,
+MAX(case when party.value:"@id"='party1' then party.value:"partyId":"#text"::varchar else NULL end) as party1,
+MAX(case when party.value:"@id"='party2' then party.value:"partyId":"#text"::varchar else NULL end) as party2,
+MAX(case when party.value:"@id"='clearingDCO' then party.value:"partyId":"#text"::varchar else NULL end) as party_clearingDCO,
+MAX(case when party.value:"@id"='clearingBroker1' then party.value:"partyId":"#text"::varchar else NULL end) as party_clearingBroker1,
+MAX(case when party.value:"@id"='tradeSource' then party.value:"partyId":"#text"::varchar else NULL end) as party_tradeSource
+ from trades.transformed.trades_json tj,
+ LATERAL FLATTEN(INPUT => trade_msg_json:"eventActivityReport":"party") party
+ GROUP BY ALL
+;
+
+
+-- Alternatively, selected content can be extracted from the XML by referencing specific tags, and returning in a JSON array:
 
 create or replace function udf_parse_xml(content varchar)
 returns variant
@@ -47,9 +95,6 @@ def udf_parse_xml(content: str):
 $$;
 
 
-
-
-
 -- Build a pipeline with Streams & Tasks
 create or replace table trades.transformed.trade_message (message variant);
 
@@ -64,7 +109,7 @@ as
     from trades.raw.trades_stream_cdc;
 
 
--- Create a pipeline using a Dynamic Table 
+-- Or create a pipeline using a Dynamic Table 
 create or replace dynamic table trades.transformed.trade_message_dt
 target_lag = '1 minute'
 warehouse = HOL_WH
