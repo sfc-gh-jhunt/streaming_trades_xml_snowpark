@@ -24,6 +24,8 @@ We will go through the steps of installing and running Apache Kafka, configuring
 ### Snowflake - Account Set Up
 #### Account Configuration
 
+- Clone this repository to your local machine that has Docker Desktop installed: `git clone git@github.com:sfc-gh-jhunt/streaming_trades_xml_snowpark.git`
+
 Open up the `./setup_kafka_connector.sql` file into a Snowsight worksheet and run the SQL commands to create databases, schemas, etc. and configure the `kafk_connector_role_1` role that KC is going to use to ingest data using Snowpipe Streaming
 
 #### Configure RSA Keys for the KCs Account
@@ -37,11 +39,9 @@ alter user <USERNAME> set rsa_public_key='copy_public_key_here';
 ### Docker Setup - Preferred Method
 We have provided a method for you to build and run all of the necessary components for this demo via a single `docker-compose.yml`. This will launch four services: Zookeeper, Apache Kafka, Kafka Connect, and the Python Streaming Client. To get started with this demo via Docker:
 
-1. Clone this repository to your local machine that has Docker Desktop installed: `git clone git@github.com:sfc-gh-jhunt/streaming_trades_xml_snowpark.git`
+- Open up the `SF_connect.properties` file in your text editor of choice and modify the following properties with your appropriate demo account information: `snowflake.url.name`, `snowflake.user.name`, and `snowflake.private.key`. If you are using an encrypted private key, you'll also neeed to uncomment and include the `snowflake.private.key.passphrase`, however if your key is not encrypted, leave this line commented out. Note that the private key should be entered as a single string with no line breaks. Storing plaintext credentials 
 
-2. Open up the `SF_connect.properties` file in your text editor of choice and modify the following properties with your appropriate demo account information: `snowflake.url.name`, `snowflake.user.name`, and `snowflake.private.key`. If you are using an encrypted private key, you'll also neeed to uncomment and include the `snowflake.private.key.passphrase`, however if your key is not encrypted, leave this line commented out. Note that the private key should be entered as a single string with no line breaks. Storing plaintext credentials 
-
-3. Once you have modified and saved the properties, you can build and launch the project:
+- Once you have modified and saved the properties, you can build and launch the project:
 
 ```zsh
 cd /path/to/repo/
