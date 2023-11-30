@@ -48,6 +48,10 @@ grant role kafka_connector_role_1 to user kafka_user;
 -- -- If you encounter an 'Insufficient privileges' error, verify the role that has the OWNERSHIP privilege on the user.
 alter user kafka_user set default_role = kafka_connector_role_1;
 
+-- Grant the EXECUTE TASK Privilege to SYSADMIN (will be needed for pipeline creation later)
+use role accountadmin;
+grant EXECUTE TASK ON ACCOUNT TO ROLE SYSADMIN;
+
 -- Cleanup :
 /*
 use role ACCOUNTADMIN;

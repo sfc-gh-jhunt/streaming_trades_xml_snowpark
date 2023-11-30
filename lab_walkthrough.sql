@@ -5,6 +5,7 @@ use warehouse hol_wh;
 use database trades;
 use schema raw;
 
+-- If not already done, start the Kafka stream into Snowpipe Streaming
 -- Check the data is streaming in to our raw.trades table
 select count(*) from trades_stream ;
 select * from  trades_stream order by timestamp desc limit 100;
@@ -29,6 +30,7 @@ def xml2json(xml_string):
 $$;
 
 -- The udf can be called directly in a query:
+-- Here you can compare the original XML vs. transformed JSON
 select 
 record_metadata,
 trade_msg,
@@ -37,7 +39,7 @@ from trades.raw.trades_stream
 limit 100;
 
 -- Or used to populate a transformed table containing the JSON:
-create table trades.transformed.trades_json as (
+create or replace table trades.transformed.trades_json as (
 select 
 record_metadata,
 xml2json(trade_msg) as trade_msg_json
@@ -62,7 +64,6 @@ MAX(case when party.value:"@id"='tradeSource' then party.value:"partyId":"#text"
 
 
 -- Alternatively, selected content can be extracted from the XML by referencing specific tags, and returning in a JSON array:
---
 create or replace function public.udf_parse_xml(content varchar)
 returns variant
 language python
@@ -114,8 +115,23 @@ as
 -- RESUME the task
 ALTER TASK trades.raw.parse_trade_message_data_pipeline_task RESUME;
 
+-- Rows should still be continuing to stream into our raw table
+select count(*) from trades.raw.trades_stream;
+
 -- Monitor rows being populated into the target table
+-- As the task executes each minute
 select count(*) from trades.transformed.trade_message;
+
+-- Task execution can be monitored through the Snowsight UI
+-- or via a query:
+select *
+  from table(information_schema.task_history(
+    scheduled_time_range_start=>dateadd('hour',-1,current_timestamp()),
+    result_limit => 10,
+    task_name=>'parse_trade_message_data_pipeline_task'))
+    order by scheduled_time desc;
+    
+-- The transformed data can be seen in the target table
 select * from trades.transformed.trade_message
 order by message:trade_date desc;
 
@@ -137,11 +153,21 @@ select message:clearingBroker1::string as clearingBroker1,
        message:usi::string as usi,
        message:usinamespace::string as usinamespace
 from trades.transformed.trade_message
-);
+;
+
+-- You can manually refresh the Dynamic Table, or wait for the automatic refresh based on the target lag
+alter dynamic table trades.transformed.trade_message_DT refresh;
+
+-- Again, let's review the rows being populated into the target Dynamic Table
+select count(*) from trades.transformed.trade_message_DT;
+
+select * from trades.transformed.trade_message_DT order by trade_date desc;
 
 -- Now let's look at exporting XML from a Snowflake table
 -- Create a stage to contain the exported XML file(s)
-create or replace stage TRADES.TRANSFORMED.XML_DATA_OUT 
+USE SCHEMA transformed;
+
+create or replace stage XML_DATA_OUT 
 FILE_FORMAT = (TYPE = XML);
 
 -- Simple example of a Python Stored Procedure
@@ -180,6 +206,4 @@ select * from @XML_DATA_OUT/test.xml;
 -- Or SnowSQL can be used to download from the stage to a local machine
 -- e.g. 
 -- GET @xml_data_out/test.xml file:///tmp/data/;
-
-
 
