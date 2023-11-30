@@ -11,7 +11,7 @@ select * from  trades_stream order by timestamp desc limit 100;
 
 -- One option is to convert the whole XML schema to JSON and query using dot notation:
 -- xmltodict package can be called in a udf to achieve this.
-create or replace function xml2json(xml_string varchar)
+create or replace function public.xml2json(xml_string varchar)
 returns variant
 language python
 volatile
@@ -62,8 +62,8 @@ MAX(case when party.value:"@id"='tradeSource' then party.value:"partyId":"#text"
 
 
 -- Alternatively, selected content can be extracted from the XML by referencing specific tags, and returning in a JSON array:
-
-create or replace function udf_parse_xml(content varchar)
+--
+create or replace function public.udf_parse_xml(content varchar)
 returns variant
 language python
 runtime_version = '3.8'
@@ -96,25 +96,90 @@ $$;
 
 
 -- Build a pipeline with Streams & Tasks
+-- Create a target table
 create or replace table trades.transformed.trade_message (message variant);
 
+-- Create a stream on the raw table
 create or replace stream trades.raw.trades_stream_cdc on table trades.raw.trades_stream show_initial_rows = TRUE;
 
+-- Create a task running every minute to process new rows into the target table
 create or replace task trades.raw.parse_trade_message_data_pipeline_task
     warehouse = 'HOL_WH'
-    scheduel = '1 minute'
+    schedule = '1 minute'
 as 
     insert into trades.transformed.trade_message (message)
     select trades.public.udf_parse_xml(trade_msg) as message
     from trades.raw.trades_stream_cdc;
 
+-- RESUME the task
+ALTER TASK trades.raw.parse_trade_message_data_pipeline_task RESUME;
 
--- Or create a pipeline using a Dynamic Table 
-create or replace dynamic table trades.transformed.trade_message_dt
+-- Monitor rows being populated into the target table
+select count(*) from trades.transformed.trade_message;
+select * from trades.transformed.trade_message
+order by message:trade_date desc;
+
+
+-- Option to use Dynamic Tables to simplify pipelines
+-- e.g. Create a Dynamic Table with a target lag of 1 minute
+-- and use dot-notation to break values out into separate columns
+create or replace dynamic table trades.transformed.trade_message_DT
 target_lag = '1 minute'
 warehouse = HOL_WH
 as
-select trades.public.udf_parse_xml(trade_msg):clearingDCO::string as clearing_dco,
-       count(*) as number_of_trades
-from trades.raw.trades_stream 
-group by 1;
+select message:clearingBroker1::string as clearingBroker1,
+       message:clearingDCO::string as clearingDCO,
+       message:murex_trade_id::string as murex_trade_id,
+       message:party1::string as party1,
+       message:party2::string as party2,
+       message:tradeSource::string as tradeSource,
+       message:trade_date::string as trade_date,
+       message:usi::string as usi,
+       message:usinamespace::string as usinamespace
+from trades.transformed.trade_message
+);
+
+-- Now let's look at exporting XML from a Snowflake table
+-- Create a stage to contain the exported XML file(s)
+create or replace stage TRADES.TRANSFORMED.XML_DATA_OUT 
+FILE_FORMAT = (TYPE = XML);
+
+-- Simple example of a Python Stored Procedure
+-- which will output to our stage
+CREATE OR REPLACE PROCEDURE write_xml()
+RETURNS STRING
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.8'
+PACKAGES = ('snowflake-snowpark-python', 'pandas', 'lxml')
+HANDLER = 'write_xml'
+AS
+$$
+import pandas
+import lxml
+
+def write_xml(session) -> str: 
+    tableName = 'trades.transformed.trade_message_DT'
+    df = session.table(tableName).to_pandas()
+    df = df.set_index('MUREX_TRADE_ID')
+    df.to_xml(elem_cols=[ # or attr_cols to flatten
+              'CLEARINGDCO', 'PARTY1', 'PARTY2', 'TRADESOURCE', 'TRADE_DATE', 'USI', 'USINAMESPACE',
+              ], path_or_buffer='/tmp/test.xml')
+    session.file.put('/tmp/test.xml', '@XML_DATA_OUT', auto_compress=False, overwrite=True)
+    return 'Done'
+$$;
+
+-- Call the Stored Procedure
+CALL write_xml();
+
+-- View the file which is output to the stage
+list @XML_DATA_OUT;
+
+-- The content of the file can be queried directly from the stage
+select * from @XML_DATA_OUT/test.xml;
+
+-- Or SnowSQL can be used to download from the stage to a local machine
+-- e.g. 
+-- GET @xml_data_out/test.xml file:///tmp/data/;
+
+
+
