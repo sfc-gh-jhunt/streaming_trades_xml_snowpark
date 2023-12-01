@@ -107,6 +107,8 @@ create or replace stream trades.raw.trades_stream_cdc on table trades.raw.trades
 create or replace task trades.raw.parse_trade_message_data_pipeline_task
     warehouse = 'HOL_WH'
     schedule = '1 minute'
+WHEN
+    SYSTEM$STREAM_HAS_DATA('TRADES_STREAM_CDC')
 as 
     insert into trades.transformed.trade_message (message)
     select trades.public.udf_parse_xml(trade_msg) as message
